@@ -214,14 +214,7 @@
             document.querySelectorAll('.difficulty-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            
-            // Find and activate the correct button
-            const buttons = document.querySelectorAll('.difficulty-btn');
-            buttons.forEach(btn => {
-                if (btn.textContent.toLowerCase() === level) {
-                    btn.classList.add('active');
-                }
-            });
+            event.target.classList.add('active');
             
             resetGame();
         }
@@ -247,9 +240,7 @@
             
             // Draw shadow
             ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.beginPath();
-            ctx.arc(x + 2, bodyY + 52, 25, 0, Math.PI * 2);
-            ctx.fill();
+            drawCircle(x + 2, bodyY + 52, 25, 'rgba(0, 0, 0, 0.2)');
             
             // Draw legs
             ctx.strokeStyle = isBot ? '#3182ce' : '#e53e3e';
@@ -266,12 +257,12 @@
             
             // Draw feet
             ctx.fillStyle = '#654321';
-            ctx.fillRect(x - 18, bodyY + 55, 12, 8);
-            ctx.fillRect(x + 6, bodyY + 55, 12, 8);
+            drawRect(x - 18, bodyY + 55, 12, 8, '#654321');
+            drawRect(x + 6, bodyY + 55, 12, 8, '#654321');
             
             // Draw body
             ctx.fillStyle = isBot ? '#4a90e2' : '#ff6b6b';
-            ctx.fillRect(x - 12, bodyY + 15, 24, 35);
+            drawRect(x - 12, bodyY + 15, 24, 35, isBot ? '#4a90e2' : '#ff6b6b');
             
             // Draw arms - fixed length, connecting to paddles
             ctx.strokeStyle = '#fdbcb4';
@@ -312,24 +303,16 @@
             
             // Draw head
             ctx.fillStyle = '#fdbcb4';
-            ctx.beginPath();
-            ctx.arc(x, bodyY, 15, 0, Math.PI * 2);
-            ctx.fill();
+            drawCircle(x, bodyY, 15, '#fdbcb4');
             
             // Draw hair
             ctx.fillStyle = isBot ? '#8B4513' : '#2c3e50';
-            ctx.beginPath();
-            ctx.arc(x, bodyY - 5, 12, 0, Math.PI * 2);
-            ctx.fill();
+            drawCircle(x, bodyY - 5, 12, isBot ? '#8B4513' : '#2c3e50');
             
             // Draw eyes
             ctx.fillStyle = '#000';
-            ctx.beginPath();
-            ctx.arc(x - 5, bodyY - 2, 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(x + 5, bodyY - 2, 2, 0, Math.PI * 2);
-            ctx.fill();
+            drawCircle(x - 5, bodyY - 2, 2, '#000');
+            drawCircle(x + 5, bodyY - 2, 2, '#000');
             
             // Draw smile
             ctx.strokeStyle = '#000';
@@ -340,12 +323,8 @@
             
             // Draw hands
             ctx.fillStyle = '#fdbcb4';
-            ctx.beginPath();
-            ctx.arc(paddleX, paddleY, 4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(otherArmX + (isBot ? 10 : -10), shoulderY + 15, 4, 0, Math.PI * 2);
-            ctx.fill();
+            drawCircle(paddleX, paddleY, 4, '#fdbcb4');
+            drawCircle(otherArmX + (isBot ? 10 : -10), shoulderY + 15, 4, '#fdbcb4');
         }
 
         function drawPaddle(paddle, color) {
@@ -360,11 +339,10 @@
             ctx.fill();
             
             // Draw handle shadow
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
             if (paddle.x > canvas.width / 2) {
-                ctx.fillRect(centerX + radius - 5 + 2, centerY - 3 + 2, 15, 6);
+                drawRect(centerX + radius - 5 + 2, centerY - 3 + 2, 15, 6, 'rgba(0,0,0,0.3)');
             } else {
-                ctx.fillRect(centerX - radius - 10 + 2, centerY - 3 + 2, 15, 6);
+                drawRect(centerX - radius - 10 + 2, centerY - 3 + 2, 15, 6, 'rgba(0,0,0,0.3)');
             }
             
             // Draw paddle
@@ -383,12 +361,12 @@
             // Draw handle
             ctx.fillStyle = '#8B4513';
             if (paddle.x > canvas.width / 2) {
-                ctx.fillRect(centerX + radius - 5, centerY - 3, 15, 6);
+                drawRect(centerX + radius - 5, centerY - 3, 15, 6, '#8B4513');
                 ctx.strokeStyle = '#000';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(centerX + radius - 5, centerY - 3, 15, 6);
             } else {
-                ctx.fillRect(centerX - radius - 10, centerY - 3, 15, 6);
+                drawRect(centerX - radius - 10, centerY - 3, 15, 6, '#8B4513');
                 ctx.strokeStyle = '#000';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(centerX - radius - 10, centerY - 3, 15, 6);
@@ -416,10 +394,7 @@
             const bounceRadius = ball.radius + ball.bounceEffect;
             
             // Draw shadow with bounce effect
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.beginPath();
-            ctx.arc(ball.x + 2, ball.y + 2, bounceRadius, 0, Math.PI * 2);
-            ctx.fill();
+            drawCircle(ball.x + 2, ball.y + 2, bounceRadius, 'rgba(0,0,0,0.3)');
             
             // Draw ball with bounce effect (slightly compressed when bouncing)
             const compressX = bounceRadius;
@@ -440,7 +415,7 @@
             
             // Add highlight effect during bounce
             if (ball.bounceEffect > 0.3) {
-                ctx.fillStyle = `rgba(255, 255, 255, ${ball.bounceEffect * 0.5})`;
+                ctx.fillStyle = rgba(255, 255, 255, ${ball.bounceEffect * 0.5});
                 ctx.beginPath();
                 ctx.ellipse(ball.x - bounceRadius * 0.3, ball.y - bounceRadius * 0.3, 
                            bounceRadius * 0.4, bounceRadius * 0.3, 0, 0, Math.PI * 2);
@@ -603,7 +578,7 @@
             if (playerScore >= 5 || botScore >= 5) {
                 setTimeout(() => {
                     const winner = playerScore >= 5 ? 'Player' : 'Bot';
-                    alert(`${winner} Wins!`);
+                    alert(${winner} Wins!);
                     resetGame();
                 }, 100);
             }
