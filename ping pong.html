@@ -415,7 +415,7 @@
             
             // Add highlight effect during bounce
             if (ball.bounceEffect > 0.3) {
-                ctx.fillStyle = rgba(255, 255, 255, ${ball.bounceEffect * 0.5});
+                ctx.fillStyle = `rgba(255, 255, 255, ${ball.bounceEffect * 0.5})`;
                 ctx.beginPath();
                 ctx.ellipse(ball.x - bounceRadius * 0.3, ball.y - bounceRadius * 0.3, 
                            bounceRadius * 0.4, bounceRadius * 0.3, 0, 0, Math.PI * 2);
@@ -578,7 +578,7 @@
             if (playerScore >= 5 || botScore >= 5) {
                 setTimeout(() => {
                     const winner = playerScore >= 5 ? 'Player' : 'Bot';
-                    alert(${winner} Wins!);
+                    alert(`${winner} Wins!`);
                     resetGame();
                 }, 100);
             }
