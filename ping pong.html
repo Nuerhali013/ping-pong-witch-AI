@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ping Pong Game</title>
+    <title>Ping Pong Game - Solo & Multiplayer</title>
     <style>
         * {
             margin: 0;
@@ -27,12 +27,54 @@
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
         }
 
+        .mode-selector {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            margin: 0 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .mode-btn:hover {
+            background: #2d3748;
+        }
+
+        .mode-btn.active {
+            background: #3182ce;
+        }
+
         .scoreboard {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
             padding: 0 20px;
+        }
+
+        .team-section {
+            text-align: center;
+        }
+
+        .team-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .player-names {
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #a0aec0;
         }
 
         .player-score {
@@ -71,6 +113,10 @@
             color: #a0aec0;
         }
 
+        .control-row {
+            margin: 5px 0;
+        }
+
         .difficulty-selector {
             margin-top: 15px;
             text-align: center;
@@ -98,17 +144,24 @@
 </head>
 <body>
     <div class="game-container">
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setGameMode('solo')">Solo (1 vs 1)</button>
+            <button class="mode-btn" onclick="setGameMode('multiplayer')">Multiplayer (2 vs 2)</button>
+        </div>
+
         <div class="scoreboard">
-            <div>
-                <div style="color: #e53e3e; font-size: 16px;">YOU</div>
+            <div class="team-section">
+                <div class="team-title" style="color: #e53e3e;">YOUR TEAM</div>
+                <div class="player-names" id="playerNames">Player 1</div>
                 <div class="player-score" id="playerScore">0</div>
             </div>
             <div class="vs-text">
                 <div class="difficulty" id="difficultyText">MEDIUM</div>
                 <div>VS</div>
             </div>
-            <div>
-                <div style="color: #3182ce; font-size: 16px;">BOT</div>
+            <div class="team-section">
+                <div class="team-title" style="color: #3182ce;">BOT TEAM</div>
+                <div class="player-names" id="botNames">Bot 1</div>
                 <div class="bot-score" id="botScore">0</div>
             </div>
         </div>
@@ -116,8 +169,14 @@
         <canvas id="gameCanvas" class="game-canvas" width="600" height="400"></canvas>
         
         <div class="controls">
-            <p>Move your mouse up/down to control the paddle</p>
-            <p>First to 5 points wins!</p>
+            <div class="control-row" id="soloControls">
+                <p><strong>Solo Mode:</strong> Move mouse up/down to control racket</p>
+            </div>
+            <div class="control-row" id="multiplayerControls" style="display: none;">
+                <p><strong>Multiplayer Mode:</strong></p>
+                <p>Player 1 (Top): W/S keys | Player 2 (Bottom): ↑/↓ arrow keys</p>
+            </div>
+            <p>First team to 5 points wins!</p>
         </div>
         
         <div class="difficulty-selector">
@@ -133,88 +192,150 @@
         const playerScoreEl = document.getElementById('playerScore');
         const botScoreEl = document.getElementById('botScore');
         const difficultyTextEl = document.getElementById('difficultyText');
+        const playerNamesEl = document.getElementById('playerNames');
+        const botNamesEl = document.getElementById('botNames');
+        const soloControlsEl = document.getElementById('soloControls');
+        const multiplayerControlsEl = document.getElementById('multiplayerControls');
 
         // Game variables
         let playerScore = 0;
         let botScore = 0;
         let difficulty = 'medium';
         let gameRunning = true;
+        let gameMode = 'solo';
+        let botActivePlayer = 1; // Track which bot should move to the ball
+        let frameCount = 0;
 
         // Paddle properties
-        const paddleWidth = 40;
-        const paddleHeight = 40;
-        const paddleRadius = 20;
-        const paddleSpeed = 5;
+        const paddleWidth = 15;
+        const paddleHeight = 60;
+        const paddleSpeed = 6;
 
-        // Player paddle (right side)
-        const playerPaddle = {
-            x: canvas.width - 50,
-            y: canvas.height / 2 - paddleHeight / 2,
+        // Player paddles (right side) - Fixed positioning
+        const playerPaddle1 = {
+            x: canvas.width - 20,
+            y: canvas.height / 4 - paddleHeight / 2, // Top quarter
             width: paddleWidth,
             height: paddleHeight,
             speed: paddleSpeed
         };
 
-        // Bot paddle (left side)
-        const botPaddle = {
-            x: 30,
-            y: canvas.height / 2 - paddleHeight / 2,
+        const playerPaddle2 = {
+            x: canvas.width - 20,
+            y: (canvas.height * 3) / 4 - paddleHeight / 2, // Bottom quarter
+            width: paddleWidth,
+            height: paddleHeight,
+            speed: paddleSpeed
+        };
+
+        // Bot paddles (left side) - Fixed positioning
+        const botPaddle1 = {
+            x: 10,
+            y: canvas.height / 4 - paddleHeight / 2, // Top quarter
             width: paddleWidth,
             height: paddleHeight,
             speed: paddleSpeed,
-            targetY: canvas.height / 2 - paddleHeight / 2,
-            velocity: 0
+            targetY: canvas.height / 4 - paddleHeight / 2
+        };
+
+        const botPaddle2 = {
+            x: 10,
+            y: (canvas.height * 3) / 4 - paddleHeight / 2, // Bottom quarter
+            width: paddleWidth,
+            height: paddleHeight,
+            speed: paddleSpeed,
+            targetY: (canvas.height * 3) / 4 - paddleHeight / 2
         };
 
         // Ball properties
         const ball = {
             x: canvas.width / 2,
             y: canvas.height / 2,
-            radius: 8,
-            speedX: 3,
-            speedY: 3,
-            maxSpeed: 6,
-            bounceEffect: 0,
-            maxBounceEffect: 1.2
-        };
-
-        // Player characters - positions will be updated based on paddle positions
-        const playerCharacter = {
-            baseX: canvas.width - 100,
-            x: canvas.width - 100,
-            y: canvas.height / 2,
-            armAngle: 0
-        };
-
-        const botCharacter = {
-            baseX: 80,
-            x: 80,
-            y: canvas.height / 2,
-            armAngle: 0
+            radius: 10,
+            speedX: 4,
+            speedY: 4,
+            maxSpeed: 8
         };
 
         // Difficulty settings
         const difficultySettings = {
-            easy: { maxSpeed: 2.5, acceleration: 0.15, prediction: 0.3 },
-            medium: { maxSpeed: 3.5, acceleration: 0.2, prediction: 0.5 },
-            hard: { maxSpeed: 4.5, acceleration: 0.25, prediction: 0.7 }
+            easy: { speed: 0.6, accuracy: 0.6, reactionTime: 20 },
+            medium: { speed: 0.8, accuracy: 0.8, reactionTime: 15 },
+            hard: { speed: 1.0, accuracy: 0.95, reactionTime: 10 }
         };
 
-        // Mouse control
+        // Controls
         let mouseY = canvas.height / 2;
+        const keys = {
+            w: false,
+            s: false,
+            ArrowUp: false,
+            ArrowDown: false
+        };
+
+        // Event listeners
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
             mouseY = e.clientY - rect.top;
         });
 
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'w') keys.w = true;
+            if (e.key.toLowerCase() === 's') keys.s = true;
+            if (e.key === 'ArrowUp') keys.ArrowUp = true;
+            if (e.key === 'ArrowDown') keys.ArrowDown = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key.toLowerCase() === 'w') keys.w = false;
+            if (e.key.toLowerCase() === 's') keys.s = false;
+            if (e.key === 'ArrowUp') keys.ArrowUp = false;
+            if (e.key === 'ArrowDown') keys.ArrowDown = false;
+        });
+
+        function setGameMode(mode) {
+            gameMode = mode;
+            
+            // Update button states
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Find the clicked button and add active class
+            const buttons = document.querySelectorAll('.mode-btn');
+            buttons.forEach(btn => {
+                if ((mode === 'solo' && btn.textContent.includes('Solo')) ||
+                    (mode === 'multiplayer' && btn.textContent.includes('Multiplayer'))) {
+                    btn.classList.add('active');
+                }
+            });
+
+            if (mode === 'solo') {
+                playerNamesEl.textContent = 'Player 1';
+                botNamesEl.textContent = 'Bot 1';
+                soloControlsEl.style.display = 'block';
+                multiplayerControlsEl.style.display = 'none';
+            } else {
+                playerNamesEl.textContent = 'Player 1 & Player 2';
+                botNamesEl.textContent = 'Bot 1 & Bot 2';
+                soloControlsEl.style.display = 'none';
+                multiplayerControlsEl.style.display = 'block';
+            }
+            
+            resetGame();
+        }
+
         function setDifficulty(level) {
             difficulty = level;
             difficultyTextEl.textContent = level.toUpperCase();
             
+            // Update button states
             document.querySelectorAll('.difficulty-btn').forEach(btn => {
                 btn.classList.remove('active');
+                if (btn.textContent.toLowerCase() === level) {
+                    btn.classList.add('active');
+                }
             });
-            event.target.classList.add('active');
             
             resetGame();
         }
@@ -231,207 +352,202 @@
             ctx.fill();
         }
 
-        function drawPlayer(character, isBot = false) {
-            const x = character.x;
-            const y = character.y;
+        // Function to draw a player character
+        function drawPlayer(x, y, facingRight, color, isActive = true) {
+            const opacity = isActive ? 1 : 0.7;
+            const headRadius = 12;
+            const bodyHeight = 30;
+            const bodyWidth = 8;
+            const armLength = 20;
+            const legLength = 25;
             
-            // Calculate body position
-            const bodyY = y + 20; // Body is positioned relative to character center
+            ctx.save();
+            ctx.globalAlpha = opacity;
             
-            // Draw shadow
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            drawCircle(x + 2, bodyY + 52, 25, 'rgba(0, 0, 0, 0.2)');
-            
-            // Draw legs
-            ctx.strokeStyle = isBot ? '#3182ce' : '#e53e3e';
-            ctx.lineWidth = 8;
+            // Head
+            ctx.fillStyle = '#FFE4B5'; // Skin color
             ctx.beginPath();
-            ctx.moveTo(x - 8, bodyY + 35);
-            ctx.lineTo(x - 12, bodyY + 60);
-            ctx.stroke();
+            ctx.arc(x, y - bodyHeight - headRadius, headRadius, 0, Math.PI * 2);
+            ctx.fill();
             
-            ctx.beginPath();
-            ctx.moveTo(x + 8, bodyY + 35);
-            ctx.lineTo(x + 12, bodyY + 60);
-            ctx.stroke();
-            
-            // Draw feet
-            ctx.fillStyle = '#654321';
-            drawRect(x - 18, bodyY + 55, 12, 8, '#654321');
-            drawRect(x + 6, bodyY + 55, 12, 8, '#654321');
-            
-            // Draw body
-            ctx.fillStyle = isBot ? '#4a90e2' : '#ff6b6b';
-            drawRect(x - 12, bodyY + 15, 24, 35, isBot ? '#4a90e2' : '#ff6b6b');
-            
-            // Draw arms - fixed length, connecting to paddles
-            ctx.strokeStyle = '#fdbcb4';
-            ctx.lineWidth = 6;
-            
-            // Get paddle positions
-            const paddleX = isBot ? botPaddle.x + paddleWidth / 2 : playerPaddle.x + paddleWidth / 2;
-            const paddleY = isBot ? botPaddle.y + paddleHeight / 2 : playerPaddle.y + paddleHeight / 2;
-            
-            // Playing arm (with paddle) - fixed length and position
-            const shoulderX = isBot ? x - 15 : x + 15;
-            const shoulderY = bodyY + 25;
-            
-            // Fixed arm length - always same distance
-            const armLength = 35;
-            const armAngle = Math.atan2(paddleY - shoulderY, paddleX - shoulderX);
-            const elbowX = shoulderX + Math.cos(armAngle) * (armLength * 0.6);
-            const elbowY = shoulderY + Math.sin(armAngle) * (armLength * 0.6);
-            
-            // Upper arm
-            ctx.beginPath();
-            ctx.moveTo(shoulderX, shoulderY);
-            ctx.lineTo(elbowX, elbowY);
-            ctx.stroke();
-            
-            // Lower arm
-            ctx.beginPath();
-            ctx.moveTo(elbowX, elbowY);
-            ctx.lineTo(paddleX, paddleY);
-            ctx.stroke();
-            
-            // Other arm - relaxed position
-            const otherArmX = isBot ? x + 15 : x - 15;
-            ctx.beginPath();
-            ctx.moveTo(otherArmX, shoulderY);
-            ctx.lineTo(otherArmX + (isBot ? 10 : -10), shoulderY + 15);
-            ctx.stroke();
-            
-            // Draw head
-            ctx.fillStyle = '#fdbcb4';
-            drawCircle(x, bodyY, 15, '#fdbcb4');
-            
-            // Draw hair
-            ctx.fillStyle = isBot ? '#8B4513' : '#2c3e50';
-            drawCircle(x, bodyY - 5, 12, isBot ? '#8B4513' : '#2c3e50');
-            
-            // Draw eyes
-            ctx.fillStyle = '#000';
-            drawCircle(x - 5, bodyY - 2, 2, '#000');
-            drawCircle(x + 5, bodyY - 2, 2, '#000');
-            
-            // Draw smile
+            // Head outline
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, bodyY + 2, 5, 0, Math.PI);
             ctx.stroke();
             
-            // Draw hands
-            ctx.fillStyle = '#fdbcb4';
-            drawCircle(paddleX, paddleY, 4, '#fdbcb4');
-            drawCircle(otherArmX + (isBot ? 10 : -10), shoulderY + 15, 4, '#fdbcb4');
+            // Eyes
+            ctx.fillStyle = '#000';
+            const eyeOffset = 4;
+            ctx.beginPath();
+            ctx.arc(x - eyeOffset, y - bodyHeight - headRadius - 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x + eyeOffset, y - bodyHeight - headRadius - 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Mouth (smile)
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(x, y - bodyHeight - headRadius + 5, 4, 0, Math.PI);
+            ctx.stroke();
+            
+            // Body
+            ctx.fillStyle = color;
+            ctx.fillRect(x - bodyWidth/2, y - bodyHeight, bodyWidth, bodyHeight);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - bodyWidth/2, y - bodyHeight, bodyWidth, bodyHeight);
+            
+            // Arms
+            ctx.strokeStyle = '#FFE4B5';
+            ctx.lineWidth = 4;
+            
+            // Racket holding arm
+            const racketArmAngle = facingRight ? -0.3 : 0.3;
+            const racketArmX = x + (facingRight ? bodyWidth/2 : -bodyWidth/2);
+            const racketArmY = y - bodyHeight + 8;
+            const racketHandX = racketArmX + Math.cos(racketArmAngle) * armLength * (facingRight ? 1 : -1);
+            const racketHandY = racketArmY + Math.sin(racketArmAngle) * armLength;
+            
+            ctx.beginPath();
+            ctx.moveTo(racketArmX, racketArmY);
+            ctx.lineTo(racketHandX, racketHandY);
+            ctx.stroke();
+            
+            // Other arm
+            const otherArmAngle = facingRight ? 0.5 : -0.5;
+            const otherArmX = x + (facingRight ? -bodyWidth/2 : bodyWidth/2);
+            const otherArmY = y - bodyHeight + 12;
+            
+            ctx.beginPath();
+            ctx.moveTo(otherArmX, otherArmY);
+            ctx.lineTo(otherArmX + Math.cos(otherArmAngle) * (armLength * 0.8) * (facingRight ? -1 : 1), 
+                      otherArmY + Math.sin(otherArmAngle) * (armLength * 0.8));
+            ctx.stroke();
+            
+            // Legs
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 4;
+            
+            // Left leg
+            ctx.beginPath();
+            ctx.moveTo(x - bodyWidth/4, y);
+            ctx.lineTo(x - bodyWidth/4 - 5, y + legLength);
+            ctx.stroke();
+            
+            // Right leg
+            ctx.beginPath();
+            ctx.moveTo(x + bodyWidth/4, y);
+            ctx.lineTo(x + bodyWidth/4 + 5, y + legLength);
+            ctx.stroke();
+            
+            // Feet
+            ctx.fillStyle = '#654321';
+            ctx.fillRect(x - bodyWidth/4 - 10, y + legLength, 10, 4);
+            ctx.fillRect(x + bodyWidth/4, y + legLength, 10, 4);
+            
+            ctx.restore();
         }
 
         function drawPaddle(paddle, color) {
             const centerX = paddle.x + paddle.width / 2;
             const centerY = paddle.y + paddle.height / 2;
-            const radius = paddle.width / 2;
+            const racketWidth = 15;
+            const racketHeight = 60;
+            const handleLength = 20;
             
-            // Draw paddle shadow
+            // Draw shadow
             ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.beginPath();
-            ctx.arc(centerX + 2, centerY + 2, radius, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillRect(centerX - racketWidth/2 + 2, centerY - racketHeight/2 + 2, racketWidth, racketHeight);
             
-            // Draw handle shadow
-            if (paddle.x > canvas.width / 2) {
-                drawRect(centerX + radius - 5 + 2, centerY - 3 + 2, 15, 6, 'rgba(0,0,0,0.3)');
-            } else {
-                drawRect(centerX - radius - 10 + 2, centerY - 3 + 2, 15, 6, 'rgba(0,0,0,0.3)');
-            }
-            
-            // Draw paddle
+            // Draw racket head (oval shape)
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.ellipse(centerX, centerY, racketWidth/2, racketHeight/2, 0, 0, Math.PI * 2);
             ctx.fill();
             
-            // Draw paddle border
+            // Draw racket border
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.ellipse(centerX, centerY, racketWidth/2, racketHeight/2, 0, 0, Math.PI * 2);
             ctx.stroke();
             
-            // Draw handle
-            ctx.fillStyle = '#8B4513';
-            if (paddle.x > canvas.width / 2) {
-                drawRect(centerX + radius - 5, centerY - 3, 15, 6, '#8B4513');
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(centerX + radius - 5, centerY - 3, 15, 6);
-            } else {
-                drawRect(centerX - radius - 10, centerY - 3, 15, 6, '#8B4513');
-                ctx.strokeStyle = '#000';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(centerX - radius - 10, centerY - 3, 15, 6);
-            }
-            
-            // Add racket texture
-            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+            // Draw racket strings (horizontal)
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
             ctx.lineWidth = 1;
             for (let i = -2; i <= 2; i++) {
                 ctx.beginPath();
-                ctx.moveTo(centerX + i * 8, centerY - radius + 8);
-                ctx.lineTo(centerX + i * 8, centerY + radius - 8);
+                ctx.moveTo(centerX - racketWidth/2 + 3, centerY + i * 8);
+                ctx.lineTo(centerX + racketWidth/2 - 3, centerY + i * 8);
                 ctx.stroke();
             }
-            for (let i = -2; i <= 2; i++) {
+            
+            // Draw racket strings (vertical)
+            for (let i = -1; i <= 1; i++) {
                 ctx.beginPath();
-                ctx.moveTo(centerX - radius + 8, centerY + i * 8);
-                ctx.lineTo(centerX + radius - 8, centerY + i * 8);
+                ctx.moveTo(centerX + i * 5, centerY - racketHeight/2 + 8);
+                ctx.lineTo(centerX + i * 5, centerY + racketHeight/2 - 8);
                 ctx.stroke();
             }
+            
+            // Draw handle
+            const handleX = paddle.x < canvas.width / 2 ? centerX - racketWidth/2 - handleLength : centerX + racketWidth/2;
+            const handleY = centerY;
+            
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(handleX, handleY - 3, handleLength, 6);
+            
+            // Draw handle grip texture
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(handleX + i * 6, handleY - 3);
+                ctx.lineTo(handleX + i * 6, handleY + 3);
+                ctx.stroke();
+            }
+            
+            // Draw handle border
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(handleX, handleY - 3, handleLength, 6);
         }
 
         function drawBall() {
-            // Calculate bounce effect size
-            const bounceRadius = ball.radius + ball.bounceEffect;
+            // Draw ball shadow
+            drawCircle(ball.x + 2, ball.y + 2, ball.radius, 'rgba(0,0,0,0.3)');
             
-            // Draw shadow with bounce effect
-            drawCircle(ball.x + 2, ball.y + 2, bounceRadius, 'rgba(0,0,0,0.3)');
+            // Draw ball (ping pong ball)
+            drawCircle(ball.x, ball.y, ball.radius, '#fff');
             
-            // Draw ball with bounce effect (slightly compressed when bouncing)
-            const compressX = bounceRadius;
-            const compressY = ball.radius - (ball.bounceEffect * 0.3);
-            
-            // Main ball with compression effect
-            ctx.fillStyle = '#00bcd4';
+            // Draw ball seam
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.ellipse(ball.x, ball.y, compressX, compressY, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Ball border with compression
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.ellipse(ball.x, ball.y, compressX, compressY, 0, 0, Math.PI * 2);
+            ctx.arc(ball.x, ball.y, ball.radius - 2, 0, Math.PI);
             ctx.stroke();
             
-            // Add highlight effect during bounce
-            if (ball.bounceEffect > 0.3) {
-                ctx.fillStyle = `rgba(255, 255, 255, ${ball.bounceEffect * 0.5})`;
-                ctx.beginPath();
-                ctx.ellipse(ball.x - bounceRadius * 0.3, ball.y - bounceRadius * 0.3, 
-                           bounceRadius * 0.4, bounceRadius * 0.3, 0, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius - 2, Math.PI, Math.PI * 2);
+            ctx.stroke();
             
-            // Reduce bounce effect over time
-            if (ball.bounceEffect > 0) {
-                ball.bounceEffect -= 0.08;
-                if (ball.bounceEffect < 0) ball.bounceEffect = 0;
-            }
+            // Draw ball border
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Add shine effect
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            drawCircle(ball.x - 3, ball.y - 3, 3, 'rgba(255,255,255,0.6)');
         }
 
         function drawMiddleLine() {
             ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 3;
             ctx.setLineDash([10, 10]);
             ctx.beginPath();
             ctx.moveTo(canvas.width / 2, 0);
@@ -440,116 +556,169 @@
             ctx.setLineDash([]);
         }
 
-        function updatePlayerPaddle() {
-            const targetY = mouseY - paddleHeight / 2;
-            const diff = targetY - playerPaddle.y;
-            playerPaddle.y += diff * 0.1;
-            
-            if (playerPaddle.y < 0) playerPaddle.y = 0;
-            if (playerPaddle.y > canvas.height - paddleHeight) {
-                playerPaddle.y = canvas.height - paddleHeight;
+        function updatePlayerPaddles() {
+            if (gameMode === 'solo') {
+                // Mouse control for single paddle
+                const targetY = mouseY - paddleHeight / 2;
+                playerPaddle1.y = targetY;
+                
+                // Keep paddle within bounds
+                if (playerPaddle1.y < 0) playerPaddle1.y = 0;
+                if (playerPaddle1.y > canvas.height - paddleHeight) {
+                    playerPaddle1.y = canvas.height - paddleHeight;
+                }
+            } else {
+                // Multiplayer keyboard controls
+                // Player 1 (top) - W/S keys
+                if (keys.w && playerPaddle1.y > 0) {
+                    playerPaddle1.y -= paddleSpeed;
+                }
+                if (keys.s && playerPaddle1.y < canvas.height - paddleHeight) {
+                    playerPaddle1.y += paddleSpeed;
+                }
+                
+                // Player 2 (bottom) - Arrow keys
+                if (keys.ArrowUp && playerPaddle2.y > 0) {
+                    playerPaddle2.y -= paddleSpeed;
+                }
+                if (keys.ArrowDown && playerPaddle2.y < canvas.height - paddleHeight) {
+                    playerPaddle2.y += paddleSpeed;
+                }
             }
-            
-            // Update player character position to follow paddle smoothly
-            const paddleCenter = playerPaddle.y + paddleHeight / 2;
-            const targetCharacterY = paddleCenter - 20; // Offset to center character with paddle
-            playerCharacter.y += (targetCharacterY - playerCharacter.y) * 0.15; // Smooth movement
         }
 
-        function updateBotPaddle() {
+        function updateBotPaddles() {
             const settings = difficultySettings[difficulty];
             
-            let predictedY = ball.y;
-            if (ball.speedX < 0) {
-                const timeToReach = Math.abs((ball.x - botPaddle.x) / ball.speedX);
-                predictedY = ball.y + (ball.speedY * timeToReach * settings.prediction);
+            function updateBotPaddle(paddle, isActive = true) {
+                const paddleCenter = paddle.y + paddleHeight / 2;
+                let targetY;
+                
+                if (isActive) {
+                    // Active bot follows the ball aggressively
+                    targetY = ball.y - paddleHeight / 2;
+                    
+                    // Add inaccuracy based on difficulty
+                    const inaccuracy = (1 - settings.accuracy) * 40;
+                    targetY += (Math.random() - 0.5) * inaccuracy;
+                } else {
+                    // Passive bot returns to center position or covers area
+                    const homePosition = paddle === botPaddle1 ? 
+                        canvas.height / 4 - paddleHeight / 2 : 
+                        (canvas.height * 3) / 4 - paddleHeight / 2;
+                    
+                    targetY = homePosition;
+                    
+                    // Add slight movement to make it look more natural
+                    targetY += Math.sin(frameCount * 0.02) * 20;
+                }
+                
+                const diff = targetY - paddle.y;
+                const moveSpeed = settings.speed * paddleSpeed * (isActive ? 1 : 0.3);
+                
+                if (Math.abs(diff) > moveSpeed) {
+                    paddle.y += diff > 0 ? moveSpeed : -moveSpeed;
+                } else {
+                    paddle.y = targetY;
+                }
+                
+                // Keep paddle within bounds
+                if (paddle.y < 0) paddle.y = 0;
+                if (paddle.y > canvas.height - paddleHeight) {
+                    paddle.y = canvas.height - paddleHeight;
+                }
             }
             
-            const inaccuracy = (Math.random() - 0.5) * (50 / (difficulty === 'hard' ? 3 : difficulty === 'medium' ? 2 : 1));
-            botPaddle.targetY = predictedY - paddleHeight / 2 + inaccuracy;
-            
-            const distanceToTarget = botPaddle.targetY - botPaddle.y;
-            
-            if (Math.abs(distanceToTarget) > 5) {
-                const desiredVelocity = distanceToTarget * 0.1;
-                const clampedVelocity = Math.max(-settings.maxSpeed, Math.min(settings.maxSpeed, desiredVelocity));
-                const velocityDiff = clampedVelocity - botPaddle.velocity;
-                botPaddle.velocity += velocityDiff * settings.acceleration;
+            if (gameMode === 'solo') {
+                updateBotPaddle(botPaddle1, true);
             } else {
-                botPaddle.velocity *= 0.8;
+                // Determine which bot should be active based on ball position
+                const ballMiddle = canvas.height / 2;
+                
+                // Switch active bot based on ball position with some hysteresis
+                if (ball.y < ballMiddle - 50) {
+                    botActivePlayer = 1; // Top bot active
+                } else if (ball.y > ballMiddle + 50) {
+                    botActivePlayer = 2; // Bottom bot active
+                }
+                
+                // Update both bots, but with different behaviors
+                updateBotPaddle(botPaddle1, botActivePlayer === 1);
+                updateBotPaddle(botPaddle2, botActivePlayer === 2);
             }
+        }
+
+        function checkCollision(paddle) {
+            // Improved collision detection
+            const racketCenterX = paddle.x + paddle.width / 2;
+            const racketCenterY = paddle.y + paddle.height / 2;
+            const racketRadiusX = 7.5;
+            const racketRadiusY = 30;
             
-            botPaddle.y += botPaddle.velocity;
+            const dx = ball.x - racketCenterX;
+            const dy = ball.y - racketCenterY;
             
-            if (botPaddle.y < 0) {
-                botPaddle.y = 0;
-                botPaddle.velocity = 0;
+            // Check collision with oval racket
+            const collision = (dx * dx) / (racketRadiusX * racketRadiusX) + 
+                             (dy * dy) / (racketRadiusY * racketRadiusY) <= 
+                             (ball.radius / racketRadiusX) * (ball.radius / racketRadiusX);
+            
+            if (collision) {
+                // Prevent ball from getting stuck inside paddle
+                if (paddle.x < canvas.width / 2) {
+                    // Left side paddle - push ball right
+                    ball.x = paddle.x + paddle.width + ball.radius + 5;
+                } else {
+                    // Right side paddle - push ball left
+                    ball.x = paddle.x - ball.radius - 5;
+                }
+                
+                // Reverse X direction
+                ball.speedX = -ball.speedX;
+                
+                // Add spin based on hit position
+                const hitPos = dy / racketRadiusY;
+                ball.speedY += hitPos * 2;
+                
+                // Add some randomness
+                ball.speedY += (Math.random() - 0.5) * 1.5;
+                
+                // Increase speed slightly
+                ball.speedX *= 1.02;
+                ball.speedY *= 1.02;
+                
+                // Limit max speed
+                if (Math.abs(ball.speedX) > ball.maxSpeed) {
+                    ball.speedX = ball.speedX > 0 ? ball.maxSpeed : -ball.maxSpeed;
+                }
+                if (Math.abs(ball.speedY) > ball.maxSpeed) {
+                    ball.speedY = ball.speedY > 0 ? ball.maxSpeed : -ball.maxSpeed;
+                }
+                
+                return true;
             }
-            if (botPaddle.y > canvas.height - paddleHeight) {
-                botPaddle.y = canvas.height - paddleHeight;
-                botPaddle.velocity = 0;
-            }
-            
-            // Update bot character position to follow paddle smoothly
-            const paddleCenter = botPaddle.y + paddleHeight / 2;
-            const targetCharacterY = paddleCenter - 20; // Offset to center character with paddle
-            botCharacter.y += (targetCharacterY - botCharacter.y) * 0.15; // Smooth movement like player
+            return false;
         }
 
         function updateBall() {
             ball.x += ball.speedX;
             ball.y += ball.speedY;
 
+            // Ball collision with top and bottom walls
             if (ball.y <= ball.radius || ball.y >= canvas.height - ball.radius) {
                 ball.speedY = -ball.speedY;
-                // Add bounce effect when hitting top/bottom walls
-                ball.bounceEffect = ball.maxBounceEffect * 0.7;
             }
 
-            // Ball collision with player paddle
-            const playerCenterX = playerPaddle.x + paddleWidth / 2;
-            const playerCenterY = playerPaddle.y + paddleHeight / 2;
-            const distToPlayer = Math.sqrt(
-                Math.pow(ball.x - playerCenterX, 2) + Math.pow(ball.y - playerCenterY, 2)
-            );
-            
-            if (distToPlayer <= ball.radius + paddleRadius && ball.speedX > 0) {
-                ball.speedX = -Math.abs(ball.speedX);
-                const hitAngle = Math.atan2(ball.y - playerCenterY, ball.x - playerCenterX);
-                ball.speedY = Math.sin(hitAngle) * 4;
-                
-                // Add bounce effect to ball
-                ball.bounceEffect = ball.maxBounceEffect;
-                
-                // Add swing animation
-                playerCharacter.armAngle += 0.5;
-                
-                if (Math.abs(ball.speedX) < ball.maxSpeed) {
-                    ball.speedX *= 1.05;
-                }
-            }
-
-            // Ball collision with bot paddle
-            const botCenterX = botPaddle.x + paddleWidth / 2;
-            const botCenterY = botPaddle.y + paddleHeight / 2;
-            const distToBot = Math.sqrt(
-                Math.pow(ball.x - botCenterX, 2) + Math.pow(ball.y - botCenterY, 2)
-            );
-            
-            if (distToBot <= ball.radius + paddleRadius && ball.speedX < 0) {
-                ball.speedX = Math.abs(ball.speedX);
-                const hitAngle = Math.atan2(ball.y - botCenterY, ball.x - botCenterX);
-                ball.speedY = Math.sin(hitAngle) * 4;
-                
-                // Add bounce effect to ball
-                ball.bounceEffect = ball.maxBounceEffect;
-                
-                // Add swing animation
-                botCharacter.armAngle -= 0.5;
-                
-                if (Math.abs(ball.speedX) < ball.maxSpeed) {
-                    ball.speedX *= 1.05;
-                }
+            // Check collisions with all active paddles
+            if (gameMode === 'solo') {
+                checkCollision(playerPaddle1);
+                checkCollision(botPaddle1);
+            } else {
+                // Check all four paddles in multiplayer
+                checkCollision(playerPaddle1);
+                checkCollision(playerPaddle2);
+                checkCollision(botPaddle1);
+                checkCollision(botPaddle2);
             }
 
             // Score points
@@ -569,15 +738,14 @@
         function resetBall() {
             ball.x = canvas.width / 2;
             ball.y = canvas.height / 2;
-            ball.speedX = (Math.random() > 0.5 ? 1 : -1) * 3;
-            ball.speedY = (Math.random() > 0.5 ? 1 : -1) * 3;
-            ball.bounceEffect = 0; // Reset bounce effect
+            ball.speedX = (Math.random() > 0.5 ? 1 : -1) * 4;
+            ball.speedY = (Math.random() > 0.5 ? 1 : -1) * 4;
         }
 
         function checkGameEnd() {
             if (playerScore >= 5 || botScore >= 5) {
                 setTimeout(() => {
-                    const winner = playerScore >= 5 ? 'Player' : 'Bot';
+                    const winner = playerScore >= 5 ? 'Your Team' : 'Bot Team';
                     alert(`${winner} Wins!`);
                     resetGame();
                 }, 100);
@@ -590,38 +758,88 @@
             playerScoreEl.textContent = '0';
             botScoreEl.textContent = '0';
             resetBall();
+            botActivePlayer = 1;
+            frameCount = 0;
             
-            playerPaddle.y = canvas.height / 2 - paddleHeight / 2;
-            botPaddle.y = canvas.height / 2 - paddleHeight / 2;
-            botPaddle.targetY = canvas.height / 2 - paddleHeight / 2;
-            botPaddle.velocity = 0;
-            
-            // Reset character positions
-            playerCharacter.y = canvas.height / 2;
-            playerCharacter.armAngle = 0;
-            botCharacter.y = canvas.height / 2;
-            botCharacter.armAngle = 0;
+            // Reset paddle positions with better spacing
+            playerPaddle1.y = canvas.height / 4 - paddleHeight / 2;
+            playerPaddle2.y = (canvas.height * 3) / 4 - paddleHeight / 2;
+            botPaddle1.y = canvas.height / 4 - paddleHeight / 2;
+            botPaddle2.y = (canvas.height * 3) / 4 - paddleHeight / 2;
         }
 
         function gameLoop() {
             if (!gameRunning) return;
 
+            frameCount++;
+
+            // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            updatePlayerPaddle();
-            updateBotPaddle();
+            // Update game objects
+            updatePlayerPaddles();
+            updateBotPaddles();
             updateBall();
 
+            // Draw everything
             drawMiddleLine();
-            drawPlayer(playerCharacter, false); // Player (right side)
-            drawPlayer(botCharacter, true); // Bot (left side)
-            drawPaddle(playerPaddle, '#e53e3e');
-            drawPaddle(botPaddle, '#3182ce');
+            
+            if (gameMode === 'solo') {
+                // Draw single player characters
+                // Player side (right)
+                const playerY = canvas.height - 40;
+                const playerX = canvas.width - 80;
+                drawPlayer(playerX, playerY, false, '#e53e3e', true);
+                
+                // Bot side (left)
+                const botY = canvas.height - 40;
+                const botX = 80;
+                drawPlayer(botX, botY, true, '#3182ce', true);
+                
+                // Draw paddles
+                drawPaddle(playerPaddle1, '#e53e3e');
+                drawPaddle(botPaddle1, '#3182ce');
+            } else {
+                // Draw multiplayer characters (2 vs 2)
+                // Player side (right)
+                const playerY = canvas.height - 40;
+                const playerX = canvas.width - 80;
+                
+                // Player 1 (top area)
+                const player1Y = canvas.height / 4 + 60;
+                drawPlayer(playerX, player1Y, false, '#e53e3e', true);
+                
+                // Player 2 (bottom area)  
+                const player2Y = (canvas.height * 3) / 4 + 60;
+                drawPlayer(playerX, player2Y, false, '#e53e3e', true);
+                
+                // Bot side (left)
+                const botX = 80;
+                
+                // Bot 1 (top area)
+                const bot1Y = canvas.height / 4 + 60;
+                const bot1Active = botActivePlayer === 1;
+                drawPlayer(botX, bot1Y, true, '#3182ce', bot1Active);
+                
+                // Bot 2 (bottom area)
+                const bot2Y = (canvas.height * 3) / 4 + 60;
+                const bot2Active = botActivePlayer === 2;
+                drawPlayer(botX, bot2Y, true, '#3182ce', bot2Active);
+                
+                // Draw all four paddles
+                drawPaddle(playerPaddle1, '#e53e3e');
+                drawPaddle(playerPaddle2, '#e53e3e');
+                drawPaddle(botPaddle1, '#3182ce');
+                drawPaddle(botPaddle2, '#3182ce');
+            }
+            
             drawBall();
 
+            // Continue game loop
             requestAnimationFrame(gameLoop);
         }
 
+        // Start the game
         gameLoop();
     </script>
 </body>
