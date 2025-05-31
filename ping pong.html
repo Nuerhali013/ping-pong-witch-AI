@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ping Pong Game</title>
+    <title>Ping Pong Game - Solo & Multiplayer</title>
     <style>
         * {
             margin: 0;
@@ -352,61 +352,72 @@
             ctx.fill();
         }
 
-        // Function to draw a player character
-        function drawPlayer(x, y, facingRight, color, isActive = true) {
+        // Function to draw a player character with dynamic arm movement
+        function drawPlayer(x, y, facingRight, color, isActive = true, paddleY = null) {
             const opacity = isActive ? 1 : 0.7;
-            const headRadius = 12;
-            const bodyHeight = 30;
-            const bodyWidth = 8;
-            const armLength = 20;
-            const legLength = 25;
+            const headRadius = 10;
+            const bodyHeight = 25;
+            const bodyWidth = 6;
+            const armLength = 18;
+            const legLength = 20;
             
             ctx.save();
             ctx.globalAlpha = opacity;
             
             // Head
-            ctx.fillStyle = '#FFE4B5'; // Skin color
+            ctx.fillStyle = '#FFE4B5';
             ctx.beginPath();
             ctx.arc(x, y - bodyHeight - headRadius, headRadius, 0, Math.PI * 2);
             ctx.fill();
             
             // Head outline
             ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
             
             // Eyes
             ctx.fillStyle = '#000';
-            const eyeOffset = 4;
+            const eyeOffset = 3;
             ctx.beginPath();
-            ctx.arc(x - eyeOffset, y - bodyHeight - headRadius - 2, 2, 0, Math.PI * 2);
+            ctx.arc(x - eyeOffset, y - bodyHeight - headRadius - 1, 1.5, 0, Math.PI * 2);
             ctx.fill();
             ctx.beginPath();
-            ctx.arc(x + eyeOffset, y - bodyHeight - headRadius - 2, 2, 0, Math.PI * 2);
+            ctx.arc(x + eyeOffset, y - bodyHeight - headRadius - 1, 1.5, 0, Math.PI * 2);
             ctx.fill();
             
             // Mouth (smile)
             ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.arc(x, y - bodyHeight - headRadius + 5, 4, 0, Math.PI);
+            ctx.arc(x, y - bodyHeight - headRadius + 3, 3, 0, Math.PI);
             ctx.stroke();
             
             // Body
             ctx.fillStyle = color;
             ctx.fillRect(x - bodyWidth/2, y - bodyHeight, bodyWidth, bodyHeight);
             ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.5;
             ctx.strokeRect(x - bodyWidth/2, y - bodyHeight, bodyWidth, bodyHeight);
             
-            // Arms
+            // Arms - racket holding arm follows paddle position
             ctx.strokeStyle = '#FFE4B5';
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 3;
             
-            // Racket holding arm
-            const racketArmAngle = facingRight ? -0.3 : 0.3;
+            // Calculate racket arm position based on paddle position if provided
+            let racketArmAngle;
+            if (paddleY !== null) {
+                const paddleCenter = paddleY + paddleHeight / 2;
+                const playerCenter = y - bodyHeight / 2;
+                const heightDiff = paddleCenter - playerCenter;
+                // Adjust arm angle based on paddle position
+                racketArmAngle = Math.atan2(heightDiff, armLength * (facingRight ? 1 : -1)) * 0.5;
+                racketArmAngle = Math.max(-0.7, Math.min(0.7, racketArmAngle)); // Limit angle
+            } else {
+                racketArmAngle = facingRight ? -0.2 : 0.2;
+            }
+            
             const racketArmX = x + (facingRight ? bodyWidth/2 : -bodyWidth/2);
-            const racketArmY = y - bodyHeight + 8;
+            const racketArmY = y - bodyHeight + 6;
             const racketHandX = racketArmX + Math.cos(racketArmAngle) * armLength * (facingRight ? 1 : -1);
             const racketHandY = racketArmY + Math.sin(racketArmAngle) * armLength;
             
@@ -416,36 +427,36 @@
             ctx.stroke();
             
             // Other arm
-            const otherArmAngle = facingRight ? 0.5 : -0.5;
+            const otherArmAngle = facingRight ? 0.4 : -0.4;
             const otherArmX = x + (facingRight ? -bodyWidth/2 : bodyWidth/2);
-            const otherArmY = y - bodyHeight + 12;
+            const otherArmY = y - bodyHeight + 8;
             
             ctx.beginPath();
             ctx.moveTo(otherArmX, otherArmY);
-            ctx.lineTo(otherArmX + Math.cos(otherArmAngle) * (armLength * 0.8) * (facingRight ? -1 : 1), 
-                      otherArmY + Math.sin(otherArmAngle) * (armLength * 0.8));
+            ctx.lineTo(otherArmX + Math.cos(otherArmAngle) * (armLength * 0.7) * (facingRight ? -1 : 1), 
+                      otherArmY + Math.sin(otherArmAngle) * (armLength * 0.7));
             ctx.stroke();
             
             // Legs
             ctx.strokeStyle = '#000';
-            ctx.lineWidth = 4;
+            ctx.lineWidth = 3;
             
             // Left leg
             ctx.beginPath();
             ctx.moveTo(x - bodyWidth/4, y);
-            ctx.lineTo(x - bodyWidth/4 - 5, y + legLength);
+            ctx.lineTo(x - bodyWidth/4 - 3, y + legLength);
             ctx.stroke();
             
             // Right leg
             ctx.beginPath();
             ctx.moveTo(x + bodyWidth/4, y);
-            ctx.lineTo(x + bodyWidth/4 + 5, y + legLength);
+            ctx.lineTo(x + bodyWidth/4 + 3, y + legLength);
             ctx.stroke();
             
             // Feet
             ctx.fillStyle = '#654321';
-            ctx.fillRect(x - bodyWidth/4 - 10, y + legLength, 10, 4);
-            ctx.fillRect(x + bodyWidth/4, y + legLength, 10, 4);
+            ctx.fillRect(x - bodyWidth/4 - 8, y + legLength, 8, 3);
+            ctx.fillRect(x + bodyWidth/4, y + legLength, 8, 3);
             
             ctx.restore();
         }
@@ -775,71 +786,58 @@
 
             // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Draw middle line
+            drawMiddleLine();
 
             // Update game objects
             updatePlayerPaddles();
             updateBotPaddles();
             updateBall();
 
-            // Draw everything
-            drawMiddleLine();
-            
+            // Draw paddles with different colors
             if (gameMode === 'solo') {
-                // Draw single player characters
-                // Player side (right)
-                const playerY = canvas.height - 40;
-                const playerX = canvas.width - 80;
-                drawPlayer(playerX, playerY, false, '#e53e3e', true);
-                
-                // Bot side (left)
-                const botY = canvas.height - 40;
-                const botX = 80;
-                drawPlayer(botX, botY, true, '#3182ce', true);
-                
-                // Draw paddles
                 drawPaddle(playerPaddle1, '#e53e3e');
                 drawPaddle(botPaddle1, '#3182ce');
             } else {
-                // Draw multiplayer characters (2 vs 2)
-                // Player side (right)
-                const playerY = canvas.height - 40;
-                const playerX = canvas.width - 80;
-                
-                // Player 1 (top area)
-                const player1Y = canvas.height / 4 + 60;
-                drawPlayer(playerX, player1Y, false, '#e53e3e', true);
-                
-                // Player 2 (bottom area)  
-                const player2Y = (canvas.height * 3) / 4 + 60;
-                drawPlayer(playerX, player2Y, false, '#e53e3e', true);
-                
-                // Bot side (left)
-                const botX = 80;
-                
-                // Bot 1 (top area)
-                const bot1Y = canvas.height / 4 + 60;
-                const bot1Active = botActivePlayer === 1;
-                drawPlayer(botX, bot1Y, true, '#3182ce', bot1Active);
-                
-                // Bot 2 (bottom area)
-                const bot2Y = (canvas.height * 3) / 4 + 60;
-                const bot2Active = botActivePlayer === 2;
-                drawPlayer(botX, bot2Y, true, '#3182ce', bot2Active);
-                
-                // Draw all four paddles
                 drawPaddle(playerPaddle1, '#e53e3e');
                 drawPaddle(playerPaddle2, '#e53e3e');
                 drawPaddle(botPaddle1, '#3182ce');
                 drawPaddle(botPaddle2, '#3182ce');
             }
-            
+
+            // Draw ball
             drawBall();
 
-            // Continue game loop
+            // Draw player characters with proper paddle positions
+            if (gameMode === 'solo') {
+                // Solo mode - single players
+                drawPlayer(canvas.width - 60, playerPaddle1.y + paddleHeight/2, false, '#ff6b6b', true, playerPaddle1.y);
+                drawPlayer(60, botPaddle1.y + paddleHeight/2, true, '#4ecdc4', true, botPaddle1.y);
+            } else {
+                // Multiplayer mode - teams of 2
+                // Player team (right side)
+                drawPlayer(canvas.width - 60, playerPaddle1.y + paddleHeight/2, false, '#ff6b6b', true, playerPaddle1.y);
+                drawPlayer(canvas.width - 60, playerPaddle2.y + paddleHeight/2, false, '#ff8e8e', true, playerPaddle2.y);
+                
+                // Bot team (left side) 
+                const bot1Active = botActivePlayer === 1;
+                const bot2Active = botActivePlayer === 2;
+                drawPlayer(60, botPaddle1.y + paddleHeight/2, true, '#4ecdc4', bot1Active, botPaddle1.y);
+                drawPlayer(60, botPaddle2.y + paddleHeight/2, true, '#7ee8e1', bot2Active, botPaddle2.y);
+            }
+
+            // Draw court decorations
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, 50, 0, Math.PI * 2);
+            ctx.stroke();
+
             requestAnimationFrame(gameLoop);
         }
 
-        // Start the game
+        // Initialize and start the game
+        resetGame();
         gameLoop();
     </script>
 </body>
